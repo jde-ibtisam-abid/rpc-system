@@ -1,21 +1,45 @@
-# server.py
+# server_vector.py
 from flask import Flask, request, jsonify
-import os
+from vector_clock import VectorClock
 
 app = Flask(__name__)
+server_clock = VectorClock("Server")
 
-@app.route("/add", methods=["POST"])
+@app.route('/add', methods=['POST'])
 def add():
     data = request.get_json()
-    x, y = data["x"], data["y"]
-    return jsonify({"result": x + y})
+    x = data.get('x')
+    y = data.get('y')
+    client_clock = data.get('vector_clock', {})
 
-@app.route("/multiply", methods=["POST"])
+    # Merge client’s vector clock
+    server_clock.update(client_clock)
+    # Increment for local event
+    server_clock.increment()
+
+    result = x + y
+    return jsonify({
+        "result": result,
+        "vector_clock": server_clock.get_clock()
+    })
+
+
+@app.route('/multiply', methods=['POST'])
 def multiply():
     data = request.get_json()
-    x, y = data["x"], data["y"]
-    return jsonify({"result": x * y})
+    x = data.get('x')
+    y = data.get('y')
+    client_clock = data.get('vector_clock', {})
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+    server_clock.update(client_clock)
+    server_clock.increment()
+
+    result = x * y
+    return jsonify({
+        "result": result,
+        "vector_clock": server_clock.get_clock()
+    })
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)
